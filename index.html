@@ -1,0 +1,22 @@
+<html>
+    <head>
+        <script type="text/javascript">
+
+window.loadJs = function(s)
+{
+    var script = document.createElement("script");
+    script.src = s + "?" + performance.now();
+    script.type = "text/javascript";
+    var head = document.getElementsByTagName("head")[0];
+    head.appendChild(script);
+    head.removeChild(script);
+}
+
+loadJs('index.js')
+
+        </script>
+    
+    </head>
+    <body></body>
+
+</html>
