@@ -1,3 +1,5 @@
+(function(window) {
+  
 window.reload = function()
 {
   if (window.cleanup_previous) {
@@ -39,19 +41,34 @@ function drawGraph(ctx) {
   })
 }
 
-function on_click(x, y) {
-  window.state.clicked_places.push([x, y])
-}
 
-function on_canvas_click(clickEvent) {
-  console.log(clickEvent)
+function get_actual_coordinates(clickEvent) {
+  // this accounts for the canvas being scaled or not being at 0,0 on the screen
   var canvas = window.state.canvas
   var x = clickEvent.pageX - canvas.offsetLeft
   var y = clickEvent.pageY - canvas.offsetTop
   var mx = Math.round(x * canvas.width / canvas.offsetWidth)
   var my = Math.round(y * canvas.height / canvas.offsetHeight)
-  console.log(`registered click at ${x},${y} (${mx},${my})`)
-  on_click(mx, my)
+  return [mx, my]
+}
+
+function on_canvas_mousedown(clickEvent) {
+  console.log(clickEvent)
+  window.state.dragging = true
+}
+
+function on_canvas_mousemove(moveEvent) {
+  if (!window.state.dragging) { return }
+  //console.log(moveEvent)
+  coords = get_actual_coordinates(moveEvent)
+  console.log(`registered mouse at (${coords[0]},${coords[1]})`)
+  window.state.clicked_places.push(coords)
+}
+
+function on_canvas_mouseup(upEvent) {
+  if (!window.state.dragging) { return }
+  //console.log(upEvent)
+  window.state.dragging = false
 }
 
 window.render = function render() {
@@ -68,7 +85,9 @@ window.render = function render() {
   drawGraph(ctx);
   body.appendChild(canvas);
 
-  canvas.addEventListener('click', on_canvas_click)
-
+  canvas.addEventListener('mousedown', on_canvas_mousedown)
+  canvas.addEventListener('mousemove', on_canvas_mousemove)
+  canvas.addEventListener('mouseup', on_canvas_mouseup)
 }
 
+})(window)
