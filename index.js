@@ -41,6 +41,7 @@ if (!window.hasReload) {
 
 function onResetPressed() {
   window.state.clickedPlaces = []
+  window.state.score = null
 }
 
 function onKeypress(keyEvent) {
@@ -51,18 +52,83 @@ function onKeypress(keyEvent) {
   }
 }
 
-function drawGraph(ctx) { 
+function drawCross(ctx, point) {
+  ctx.fillStyle = 'red'
+  ctx.fillRect(point[0]-2, point[1], 4, 1)
+  ctx.fillRect(point[0], point[1]-2, 1, 4)
+}
 
-  //ctx.lineWidth = 10;
-  //ctx.strokeStyle = 'blue'
-  //ctx.fillStyle = 'red'
-  //ctx.strokeRect(50,50,200,50)
-  //ctx.fillRect(50,50,200,50)
+function drawCircle(ctx, center, radius) {
+  ctx.strokeStyle = 'red'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  //console.log(`drawing a circle at ${center[0]},${center[1]} with radius ${radius}`)
+  ctx.arc(center[0], center[1], radius, 0, 2*Math.PI)
+  ctx.stroke()
+}
 
+
+function drawGraph(ctx) {
+  ctx.fillStyle = 'black'
   window.state.clickedPlaces.forEach(function(clickedPlace) {
-    ctx.fillStyle = 'black'
     ctx.fillRect(clickedPlace[0], clickedPlace[1], 2, 2)
   })
+
+  if (window.state.score) {
+    var score = window.state.score
+    drawCross(ctx, score.circleCenter)
+    drawCircle(ctx, score.circleCenter, score.stats.avgRadius)
+  }
+}
+
+function getCenterOfCircle(clickedPlaces) {
+  // currently we just average all the points to guess where the center of the circle is
+  // this will unfairly bias the center to places where the line has overlapped, even
+  // if it overlaps perfectly. In the future we probably want to try and discard points
+  // which are on the outside of an overlap
+
+  var totalX = 0
+  var totalY = 0
+  clickedPlaces.forEach(function(place) {
+    totalX += place[0]
+    totalY += place[1]
+  })
+
+  var count = clickedPlaces.length
+  return [totalX/count,totalY/count]
+}
+
+function calculateStats(circleCenter, clickedPlaces) {
+  var minRadius = null
+  var maxRadius = null
+  var totalRadius = 0
+  clickedPlaces.forEach(function(place) {
+    var absX = Math.abs(place[0] - circleCenter[0])
+    var absY = Math.abs(place[1] - circleCenter[1])
+    var radius = Math.sqrt(absX*absX + absY*absY)
+    if (minRadius == null || minRadius > radius) { minRadius = radius }
+    if (maxRadius == null || maxRadius < radius) { maxRadius = radius }
+    totalRadius += radius
+  })
+  var count = clickedPlaces.length
+  return {minRadius: minRadius, maxRadius: maxRadius, avgRadius: totalRadius/count}
+}
+
+function getScore(circleCenter, clickedPlaces, stats) {
+  return 100
+}
+
+function calculateScore(clickedPlaces) {
+  var circleCenter = getCenterOfCircle(clickedPlaces)
+  var stats = calculateStats(circleCenter, clickedPlaces)
+  var score = getScore(circleCenter, clickedPlaces, stats)
+  return { circleCenter: circleCenter, stats: stats, score: score }
+}
+
+function setScore() {
+  var scoreObject = calculateScore(window.state.clickedPlaces)
+  console.log(scoreObject)
+  window.state.score = scoreObject
 }
 
 function getActualCoordinates(clickEvent) {
@@ -92,6 +158,7 @@ function onCanvasMouseup(upEvent) {
   if (!window.state.dragging) { return }
   //console.log(upEvent)
   window.state.dragging = false
+  setScore()
 }
 
 window.render = function render() {
