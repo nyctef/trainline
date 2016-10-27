@@ -39,7 +39,7 @@ if (!window.hasReload) {
   window.reload()
 }
 
-function onResetPressed() {
+function resetLine() {
   window.state.clickedPlaces = []
   window.state.score = null
 }
@@ -48,8 +48,13 @@ function onKeypress(keyEvent) {
   var keyChar = String.fromCharCode(keyEvent.keyCode || keyEvent.charCode).toUpperCase()
   console.log(keyChar, 'pressed')
   switch (keyChar) {
-    case 'R': onResetPressed()
+    case 'R': resetLine()
   }
+}
+
+function clearCanvas(ctx) {
+  var canvas = ctx.canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
 }
 
 function drawCross(ctx, point) {
@@ -58,17 +63,17 @@ function drawCross(ctx, point) {
   ctx.fillRect(point[0], point[1]-2, 1, 4)
 }
 
-function drawCircle(ctx, center, radius) {
-  ctx.strokeStyle = 'red'
-  ctx.lineWidth = 1
+function drawCircle(ctx, center, radius, style, width) {
+  ctx.strokeStyle = style || 'red'
+  ctx.lineWidth = width || 1
   ctx.beginPath()
   //console.log(`drawing a circle at ${center[0]},${center[1]} with radius ${radius}`)
   ctx.arc(center[0], center[1], radius, 0, 2*Math.PI)
   ctx.stroke()
 }
 
-
 function drawGraph(ctx) {
+  clearCanvas(ctx)
   ctx.fillStyle = 'black'
   window.state.clickedPlaces.forEach(function(clickedPlace) {
     ctx.fillRect(clickedPlace[0], clickedPlace[1], 2, 2)
@@ -77,7 +82,9 @@ function drawGraph(ctx) {
   if (window.state.score) {
     var score = window.state.score
     drawCross(ctx, score.circleCenter)
-    drawCircle(ctx, score.circleCenter, score.stats.avgRadius)
+    drawCircle(ctx, score.circleCenter, score.stats.avgRadius, 'green', 2)
+    drawCircle(ctx, score.circleCenter, score.stats.minRadius, 'red', 1)
+    drawCircle(ctx, score.circleCenter, score.stats.maxRadius, 'red', 1)
   }
 }
 
@@ -143,6 +150,7 @@ function getActualCoordinates(clickEvent) {
 
 function onCanvasMousedown(clickEvent) {
   //console.log(clickEvent)
+  resetLine()
   window.state.dragging = true
 }
 
@@ -175,8 +183,8 @@ function init() {
       body.removeChild(body.lastChild);
   }
   var canvas = window.state.canvas = document.createElement("canvas");
-  canvas.width = 650;
-  canvas.height = 530;
+  canvas.width = body.clientWidth;
+  canvas.height = body.clientHeight;
   body.appendChild(canvas);
 
   canvas.addEventListener('mousedown', onCanvasMousedown)
