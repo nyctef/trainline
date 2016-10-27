@@ -3,38 +3,52 @@
 window.reload = function()
 {
   var start = performance.now()
-  if (window.cleanup_previous) {
-    window.cleanup_previous()
+  if (window.cleanupPrevious) {
+    window.cleanupPrevious()
   }
 
   //console.log('reloading js')
   loadJs('index.js')
-  function raf_callback() {
+  function rafCallback() {
     window.render()
-    window.raf_callback_id = window.requestAnimationFrame(raf_callback)
+    window.rafCallbackId = window.requestAnimationFrame(rafCallback)
   }
-  window.raf_callback_id = window.requestAnimationFrame(raf_callback)
+  window.rafCallbackId = window.requestAnimationFrame(rafCallback)
+  document.addEventListener('keypress', onKeypress)
 
-  window.cleanup_previous = function() {
-    window.cancelAnimationFrame(window.raf_callback_id)
+  window.cleanupPrevious = function() {
+    window.cancelAnimationFrame(window.rafCallbackId)
+    document.removeEventListener('keypress', onKeypress)
   }
   //console.log('reload took', performance.now() - start, 'ms')
 }
 
-if (!window.has_reload) {
+if (!window.hasReload) {
   // this code should only be called once per page load
 
-  window.has_reload = true
-  if (window.setup_reload) {
+  window.hasReload = true
+  if (window.setupReload) {
     // I think we need an extra layer of indirection here to make sure we pick up new values of window.reload - should check
-    window.setInterval(function reload_callback() { window.reload() }, 250)
+    window.setInterval(function reloadCallback() { window.reload() }, 250)
   }
   window.state = {
-    clicked_places: [],
+    clickedPlaces: [],
     canvas: null,
     dragging: false,
   }
   window.reload()
+}
+
+function onResetPressed() {
+  window.state.clickedPlaces = []
+}
+
+function onKeypress(keyEvent) {
+  var keyChar = String.fromCharCode(keyEvent.keyCode || keyEvent.charCode).toUpperCase()
+  console.log(keyChar, 'pressed')
+  switch (keyChar) {
+    case 'R': onResetPressed()
+  }
 }
 
 function drawGraph(ctx) { 
@@ -45,14 +59,13 @@ function drawGraph(ctx) {
   //ctx.strokeRect(50,50,200,50)
   //ctx.fillRect(50,50,200,50)
 
-  window.state.clicked_places.forEach(function(clicked_place) {
+  window.state.clickedPlaces.forEach(function(clickedPlace) {
     ctx.fillStyle = 'black'
-    ctx.fillRect(clicked_place[0], clicked_place[1], 2, 2)
+    ctx.fillRect(clickedPlace[0], clickedPlace[1], 2, 2)
   })
 }
 
-
-function get_actual_coordinates(clickEvent) {
+function getActualCoordinates(clickEvent) {
   // this accounts for the canvas being scaled or not being at 0,0 on the screen
   var canvas = window.state.canvas
   var x = clickEvent.pageX - canvas.offsetLeft
@@ -62,20 +75,20 @@ function get_actual_coordinates(clickEvent) {
   return [mx, my]
 }
 
-function on_canvas_mousedown(clickEvent) {
+function onCanvasMousedown(clickEvent) {
   //console.log(clickEvent)
   window.state.dragging = true
 }
 
-function on_canvas_mousemove(moveEvent) {
+function onCanvasMousemove(moveEvent) {
   if (!window.state.dragging) { return }
   //console.log(moveEvent)
-  coords = get_actual_coordinates(moveEvent)
+  coords = getActualCoordinates(moveEvent)
   //console.log(`registered mouse at (${coords[0]},${coords[1]})`)
-  window.state.clicked_places.push(coords)
+  window.state.clickedPlaces.push(coords)
 }
 
-function on_canvas_mouseup(upEvent) {
+function onCanvasMouseup(upEvent) {
   if (!window.state.dragging) { return }
   //console.log(upEvent)
   window.state.dragging = false
@@ -99,9 +112,9 @@ function init() {
   canvas.height = 530;
   body.appendChild(canvas);
 
-  canvas.addEventListener('mousedown', on_canvas_mousedown)
-  canvas.addEventListener('mousemove', on_canvas_mousemove)
-  canvas.addEventListener('mouseup', on_canvas_mouseup)
+  canvas.addEventListener('mousedown', onCanvasMousedown)
+  canvas.addEventListener('mousemove', onCanvasMousemove)
+  canvas.addEventListener('mouseup', onCanvasMouseup)
 
   render()
 }
