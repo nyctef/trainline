@@ -35,20 +35,47 @@ if (!window.hasReload) {
     clickedPlaces: [],
     canvas: null,
     dragging: false,
+    target: noTarget(),
   }
   window.reload()
 }
 
-function resetLine() {
+function noTarget() {
+  return { type: 'none' }
+}
+
+function reset() {
   window.state.clickedPlaces = []
   window.state.score = null
+}
+
+function resetTarget() {
+  window.state.target = noTarget()
+}
+
+function createTargetLine() {
+  var canvasWidth = window.state.canvas.width
+  var canvasHeight = window.state.canvas.height
+  var slope = Math.random() > 0.5 ? 1 : -1;
+  var dx = Math.round(canvasWidth  / 2 * Math.random())
+  var dy = Math.round(canvasHeight / 2 * Math.random()) * slope
+  var sx = (canvasWidth  / 2) - dx
+  var sy = (canvasHeight / 2) - dy
+  var ex = (canvasWidth  / 2) + dx
+  var ey = (canvasHeight / 2) + dy
+  window.state.target = {
+    type: 'line',
+    start: [sx, sy],
+    end: [ex, ey],
+  }
 }
 
 function onKeypress(keyEvent) {
   var keyChar = String.fromCharCode(keyEvent.keyCode || keyEvent.charCode).toUpperCase()
   console.log(keyChar, 'pressed')
   switch (keyChar) {
-    case 'R': resetLine()
+    case 'R': reset(); resetTarget(); break;
+    case 'L': createTargetLine(); break;
   }
 }
 
@@ -57,10 +84,11 @@ function clearCanvas(ctx) {
   ctx.clearRect(0, 0, canvas.width, canvas.height)
 }
 
-function drawCross(ctx, point) {
-  ctx.fillStyle = 'red'
-  ctx.fillRect(point[0]-2, point[1], 4, 1)
-  ctx.fillRect(point[0], point[1]-2, 1, 4)
+function drawCross(ctx, point, style, size) {
+  var size = size || 2
+  ctx.fillStyle = style || 'red'
+  ctx.fillRect(point[0]-size, point[1], size*2, 1)
+  ctx.fillRect(point[0], point[1]-size, 1, size*2)
 }
 
 function drawCircle(ctx, center, radius, style, width) {
@@ -72,6 +100,28 @@ function drawCircle(ctx, center, radius, style, width) {
   ctx.stroke()
 }
 
+function drawScoreForCircle(ctx, score) {
+  drawCross(ctx, score.circleCenter)
+  drawCircle(ctx, score.circleCenter, score.stats.avgRadius, 'green', 2)
+  drawCircle(ctx, score.circleCenter, score.stats.minRadius, 'red', 1)
+  drawCircle(ctx, score.circleCenter, score.stats.maxRadius, 'red', 1)
+}
+
+function drawLine(ctx, start, end, style, width) {
+  ctx.beginPath()
+  ctx.strokeStyle = style || 'red'
+  ctx.lineWidth = width || 1
+  ctx.moveTo(start[0], start[1])
+  ctx.lineTo(end[0], end[1])
+  ctx.stroke();
+}
+
+function drawScoreForLine(ctx, score) {
+  score.lineOffsets.forEach(lo => {
+    drawLine(ctx, lo.point, lo.closest, 'red', 1)
+  })
+}
+
 function drawGraph(ctx) {
   clearCanvas(ctx)
   ctx.fillStyle = 'black'
@@ -79,12 +129,22 @@ function drawGraph(ctx) {
     ctx.fillRect(clickedPlace[0], clickedPlace[1], 2, 2)
   })
 
-  if (window.state.score) {
-    var score = window.state.score
-    drawCross(ctx, score.circleCenter)
-    drawCircle(ctx, score.circleCenter, score.stats.avgRadius, 'green', 2)
-    drawCircle(ctx, score.circleCenter, score.stats.minRadius, 'red', 1)
-    drawCircle(ctx, score.circleCenter, score.stats.maxRadius, 'red', 1)
+  var target = window.state.target
+  switch (target.type) {
+      case 'none': {
+        if (window.state.score) {
+          drawScoreForCircle(ctx, window.state.score)
+        }
+        break;
+      }
+      case 'line': {
+        drawCross(ctx, target.start, 'black', 10)
+        drawCross(ctx, target.end, 'black', 10)
+        if (window.state.score) {
+          drawScoreForLine(ctx, window.state.score)
+        }
+        break;
+      }
   }
 }
 
@@ -105,7 +165,7 @@ function getCenterOfCircle(clickedPlaces) {
   return [totalX/count,totalY/count]
 }
 
-function calculateStats(circleCenter, clickedPlaces) {
+function calculateStatsForCircle(circleCenter, clickedPlaces) {
   var minRadius = null
   var maxRadius = null
   var totalRadius = 0
@@ -125,11 +185,47 @@ function getScore(circleCenter, clickedPlaces, stats) {
   return 100
 }
 
-function calculateScore(clickedPlaces) {
+function calculateScoreForRandomCircle(clickedPlaces) {
   var circleCenter = getCenterOfCircle(clickedPlaces)
-  var stats = calculateStats(circleCenter, clickedPlaces)
+  var stats = calculateStatsForCircle(circleCenter, clickedPlaces)
   var score = getScore(circleCenter, clickedPlaces, stats)
   return { circleCenter: circleCenter, stats: stats, score: score }
+}
+
+function dotProduct(p1, p2) {
+  return p1[0]*p2[0] + p1[1]*p2[1]
+}
+
+function closestPointOnLine(lineStart, lineEnd, point) {
+  var startToPoint = [point[0] - lineStart[0], point[1] - lineStart[1]]
+  var startToEnd = [lineEnd[0] - lineStart[0], lineEnd[1] - lineStart[1]]
+  var startToEndMagSquared = dotProduct(startToEnd, startToEnd)
+  var stpDotSte = dotProduct(startToPoint, startToEnd)
+  var proportionalDistance = stpDotSte / startToEndMagSquared
+  if (proportionalDistance < 0) { return lineStart }
+  if (proportionalDistance > 1) { return lineEnd }
+  return [lineStart[0] + startToEnd[0]*proportionalDistance,
+          lineStart[1] + startToEnd[1]*proportionalDistance]
+}
+
+function getLineOffsets(target, clickedPlaces) {
+  return clickedPlaces.map(p => {
+    var closest = closestPointOnLine(target.start, target.end, p)
+    return { point: p, closest: closest }
+  })
+}
+
+function calculateScoreForLine(target, clickedPlaces) {
+  var lineOffsets = getLineOffsets(target, clickedPlaces)
+  return { lineOffsets: lineOffsets }
+}
+
+function calculateScore(clickedPlaces) {
+  var target = window.state.target
+  switch (target.type) {
+    case 'none': return calculateScoreForRandomCircle(clickedPlaces);
+    case 'line': return calculateScoreForLine(target, clickedPlaces);
+  }
 }
 
 function setScore() {
@@ -150,7 +246,7 @@ function getActualCoordinates(clickEvent) {
 
 function onCanvasMousedown(clickEvent) {
   //console.log(clickEvent)
-  resetLine()
+  reset()
   window.state.dragging = true
 }
 
